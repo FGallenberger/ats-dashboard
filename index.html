@@ -111,6 +111,16 @@ tbody tr.fu-soon td.fx{background:#fdf6e3!important;}
 .td-name a:hover{color:var(--accent2);text-decoration:underline;}
 .td-mkt,.td-zg{font-size:10px;color:var(--text);}
 .td-stand{font-size:10px;color:var(--text);text-align:left;padding-left:10px;}
+
+/* ── PRIORITÄT ── */
+.prio-badge{display:inline-block;padding:2px 9px;border-radius:10px;font-size:10px;font-family:'DM Mono',monospace;font-weight:600;white-space:nowrap;text-align:center;}
+.prio-hoch{background:rgba(220,38,38,.12);color:#dc2626;border:1px solid rgba(220,38,38,.4);}
+.prio-mittel{background:rgba(217,119,6,.12);color:#b45309;border:1px solid rgba(217,119,6,.4);}
+.prio-niedrig{background:rgba(2,132,199,.1);color:#0369a1;border:1px solid rgba(2,132,199,.3);}
+.prio-disq{background:rgba(100,116,139,.1);color:#64748b;border:1px solid rgba(100,116,139,.3);text-decoration:line-through;}
+.prio-none{color:var(--muted);opacity:.4;font-size:14px;}
+th.g-prio{border-top:2px solid #dc2626;color:#dc2626!important;}
+
 .td-contact{cursor:pointer;}
 
 /* Kontakt Pill */
@@ -278,6 +288,7 @@ tbody tr.fu-soon td.fx{background:#fdf6e3!important;}
   <select class="fsel" id="fMarket"><option value="">Hauptmarkt</option></select>
   <select class="fsel" id="fZg"><option value="">Zielgruppe</option></select>
   <select class="fsel" id="fType"><option value="">ATS-Typ</option></select>
+  <select class="fsel" id="fPrio"><option value="">Priorität</option><option value="Hoch">🔴 Hoch</option><option value="Mittel">🟠 Mittel</option><option value="Niedrig">🔵 Niedrig</option><option value="Disqualifiziert">⚫ Disqualifiziert</option></select>
   <select class="fsel" id="fTool"><option value="">Tool</option></select>
   <select class="fsel" id="fSchnittstelle">
     <option value="">Schnittstelle</option>
@@ -287,6 +298,7 @@ tbody tr.fu-soon td.fx{background:#fdf6e3!important;}
   </select>
   <select class="fsel" id="fSort">
     <option value="fu-first">🔔 Nachfassen zuerst</option>
+    <option value="prio-first">🔴 Priorität (Hoch zuerst)</option>
     <option value="name-asc">Unternehmen ↑</option>
     <option value="name-desc">Unternehmen ↓</option>
     <option value="market-asc">Hauptmarkt ↑</option>
@@ -309,6 +321,7 @@ tbody tr.fu-soon td.fx{background:#fdf6e3!important;}
     <th class="fx fx4 th-info" rowspan="2" style="text-align:center">Zielgruppe</th>
     <th class="fx fx5 th-info" rowspan="2" style="text-align:center">Hauptmarkt</th>
     <th class="fx fx6 th-info" rowspan="2" style="text-align:center">ATS-Typ</th>
+    <th class="g-prio" rowspan="2" style="text-align:center">Priorität</th>
     <th class="g-sta" colspan="4">STA</th>
     <th class="g-yf"  colspan="4">YF</th>
     <th class="g-rja" colspan="4">RJA</th>
@@ -461,6 +474,18 @@ function aktionenCell(aktionen){
 }
 
 
+
+// ── prio badge ──
+function prioBadge(p){
+  if(!p) return '<span class="prio-none">–</span>';
+  const l = p.toLowerCase();
+  if(l==='hoch') return '<span class="prio-badge prio-hoch">🔴 Hoch</span>';
+  if(l==='mittel') return '<span class="prio-badge prio-mittel">🟠 Mittel</span>';
+  if(l==='niedrig') return '<span class="prio-badge prio-niedrig">🔵 Niedrig</span>';
+  if(l==='disqualifiziert') return '<span class="prio-badge prio-disq">⚫ Disq.</span>';
+  return '<span class="prio-badge">'+esc(p)+'</span>';
+}
+
 // ── tech cell in table ──
 function techCell(r){
   const parts = [];
@@ -485,6 +510,7 @@ function buildRows(data){
     tr.dataset.live=allV.some(x=>x&&x.toLowerCase()==='live')?'1':'0';
     tr.dataset.plan=allV.some(x=>x&&x.toLowerCase().includes('planung'))?'1':'0';
     tr.dataset.hasakt=(r.aktionen&&r.aktionen.length)?'1':'0';
+    tr.dataset.prio=(r.prio||'').toLowerCase();
     const fus=fuStatus(r);
     tr.dataset.fustatus=fus;
     if(fus==='overdue') tr.classList.add('fu-overdue');
@@ -506,6 +532,7 @@ function buildRows(data){
       <td class="fx fx4 td-zg">${esc(r.zg||'')}</td>
       <td class="fx fx5 td-mkt">${esc(r.market||'')}</td>
       <td class="fx fx6" style="text-align:center">${typeChip(r.type)}</td>
+      <td style="text-align:center;vertical-align:middle;">${prioBadge(r.prio)}</td>
       ${gcells}${mcells}
       ${aktionenCell(r.aktionen)}
       <td style="text-align:center;vertical-align:middle;">${fuBadge(r)}</td>
@@ -538,7 +565,7 @@ function populateSelects(){
 function gv(id){ return document.getElementById(id).value; }
 function toggleFuFilter(){ fuFilterOn=!fuFilterOn; document.getElementById('btnFuFilter').classList.toggle('on',fuFilterOn); apply(); }
 function apply(){
-  const q=gv('q').toLowerCase(),mkt=gv('fMarket'),zg=gv('fZg'),typ=gv('fType'),tool=gv('fTool'),schn=gv('fSchnittstelle'),sort=gv('fSort');
+  const q=gv('q').toLowerCase(),mkt=gv('fMarket'),zg=gv('fZg'),typ=gv('fType'),tool=gv('fTool'),schn=gv('fSchnittstelle'),sort=gv('fSort'),prio=gv('fPrio');
   const rows=[...document.querySelectorAll('#TB tr')];
   rows.forEach(tr=>{
     const r=DATA[tr.dataset.idx]; if(!r){ tr.classList.add('hidden'); return; }
@@ -548,6 +575,7 @@ function apply(){
     if(zg&&r.zg!==zg) show=false;
     if(typ&&r.type!==typ) show=false;
     if(tool&&r.tool!==tool) show=false;
+    if(prio&&(r.prio||'')!==prio) show=false;
     if(schn){ const sv=[(r.sta||[])[0],(r.yf||[])[0],(r.rja||[])[0],(r.jb||[])[0],(r.itj||[])[0]]; if(!sv.some(v=>v&&v.toLowerCase()===schn.toLowerCase())) show=false; }
     if(fuFilterOn&&tr.dataset.fustatus!=='overdue'&&tr.dataset.fustatus!=='soon') show=false;
     tr.classList.toggle('hidden',!show);
@@ -559,6 +587,7 @@ function apply(){
   vis.sort((a,b)=>{
     const ra=DATA[a.dataset.idx]||{},rb=DATA[b.dataset.idx]||{};
     if(sort==='fu-first') return (fuOrder[a.dataset.fustatus]||3)-(fuOrder[b.dataset.fustatus]||3);
+    if(sort==='prio-first'){ const order={'hoch':0,'mittel':1,'niedrig':2,'':3,'disqualifiziert':4}; return (order[a.dataset.prio]??3)-(order[b.dataset.prio]??3); }
     if(sort==='name-asc') return (ra.name||'').localeCompare(rb.name||'','de');
     if(sort==='name-desc') return (rb.name||'').localeCompare(ra.name||'','de');
     if(sort==='market-asc') return (ra.market||'').localeCompare(rb.market||'','de');
@@ -569,8 +598,8 @@ function apply(){
   [...vis,...hid].forEach(tr=>tbody.appendChild(tr));
   stats();
 }
-function resetFilters(){ document.getElementById('q').value=''; ['fMarket','fZg','fType','fTool','fSchnittstelle','fSort'].forEach(id=>{ const el=document.getElementById(id); if(el)el.selectedIndex=0; }); fuFilterOn=false; document.getElementById('btnFuFilter').classList.remove('on'); apply(); }
-['q','fMarket','fZg','fType','fTool','fSchnittstelle','fSort'].forEach(id=>{ const el=document.getElementById(id); if(el)el.addEventListener(id==='q'?'input':'change',apply); });
+function resetFilters(){ document.getElementById('q').value=''; ['fMarket','fZg','fType','fTool','fPrio','fSchnittstelle','fSort'].forEach(id=>{ const el=document.getElementById(id); if(el)el.selectedIndex=0; }); fuFilterOn=false; document.getElementById('btnFuFilter').classList.remove('on'); apply(); }
+['q','fMarket','fZg','fType','fTool','fPrio','fSchnittstelle','fSort'].forEach(id=>{ const el=document.getElementById(id); if(el)el.addEventListener(id==='q'?'input':'change',apply); });
 
 // ══ PANEL TABS ══
 function switchTab(t){
@@ -598,7 +627,7 @@ function grpFields(pfx,lbl,cls,vals){
 function openPanel(idx){
   editIdx=idx;
   const isNew=idx<0;
-  const r=isNew?{name:'',url:'',tool:'',contact:'',kontakte:[],stand:'',market:'',zg:'',type:'',notizen:'',aktionen:[],followup_datum:'',followup_notiz:'',tech_stand:'',tech_schnittstelle:'',tech_besonderheiten:'',sta:['','','',''],yf:['','','',''],rja:['','','',''],jb:['','','',''],itj:['','','',''],misc:['','','','']}:DATA[idx];
+  const r=isNew?{name:'',url:'',tool:'',contact:'',kontakte:[],stand:'',market:'',zg:'',type:'',prio:'',notizen:'',aktionen:[],followup_datum:'',followup_notiz:'',tech_stand:'',tech_schnittstelle:'',tech_besonderheiten:'',sta:['','','',''],yf:['','','',''],rja:['','','',''],jb:['','','',''],itj:['','','',''],misc:['','','','']}:DATA[idx];
   tmpKontakte=JSON.parse(JSON.stringify(r.kontakte||[]));
   tmpAktionen=JSON.parse(JSON.stringify(r.aktionen||[]));
   document.getElementById('panelSub').textContent=isNew?'Neuer Eintrag':r.name;
@@ -613,6 +642,7 @@ function openPanel(idx){
       <div class="prow"><label>Hauptmarkt</label><input type="text" id="f_market" value="${esc(r.market||'')}"></div>
       <div class="prow"><label>Zielgruppe</label><input type="text" id="f_zg" value="${esc(r.zg||'')}"></div>
       <div class="prow"><label>ATS-Typ</label><input type="text" id="f_type" value="${esc(r.type||'')}"></div>
+      <div class="prow"><label>Priorität</label><select id="f_prio"><option value="">– keine –</option><option value="Hoch"${(r.prio||'')==='Hoch'?' selected':''}>🔴 Hoch</option><option value="Mittel"${(r.prio||'')==='Mittel'?' selected':''}>🟠 Mittel</option><option value="Niedrig"${(r.prio||'')==='Niedrig'?' selected':''}>🔵 Niedrig</option><option value="Disqualifiziert"${(r.prio||'')==='Disqualifiziert'?' selected':''}>⚫ Disqualifiziert</option></select></div>
       <div class="prow"><label>Aktueller Stand</label><input type="text" id="f_stand" placeholder="z.B. Termin vereinbart…" value="${esc(r.stand||r.contact||'')}"></div>
     </div>
     <div class="pgroup"><div class="pgroup-title c-info">Notizen</div>
@@ -646,7 +676,7 @@ function saveEntry(){
   const entry={
     name,url:fv('f_url').trim(),tool:fv('f_tool').trim(),contact:fv('f_stand').trim(),
     stand:fv('f_stand').trim(),kontakte:JSON.parse(JSON.stringify(tmpKontakte)),
-    market:fv('f_market').trim(),zg:fv('f_zg').trim(),type:fv('f_type').trim(),
+    market:fv('f_market').trim(),zg:fv('f_zg').trim(),type:fv('f_type').trim(),prio:fv('f_prio'),
     notizen:fv('f_notizen').trim(),aktionen:JSON.parse(JSON.stringify(tmpAktionen)),
     followup_datum:fv('f_fu_datum'),followup_notiz:fv('f_fu_notiz').trim(),
     tech_stand:fv('f_tech_stand').trim(),tech_schnittstelle:fv('f_tech_schnittstelle').trim(),tech_besonderheiten:fv('f_tech_besonderheiten').trim(),
