@@ -317,6 +317,7 @@ tbody tr.fu-soon td.fx{background:#fdf6e3!important;}
     <th class="g-misc" colspan="4">HAPI / Sonstiges</th>
     <th class="g-act" colspan="1">Aktionen</th>
     <th class="g-fu"  colspan="1">🔔 Nachfassen</th>
+    <th style="border-top:2px solid #16a34a;color:#16a34a;">🔧 Technik</th>
     <th style="border-top:2px solid var(--accent2);color:var(--accent2);">Notizen</th>
   </tr>
   <tr>
@@ -328,6 +329,7 @@ tbody tr.fu-soon td.fx{background:#fdf6e3!important;}
     <th class="s-misc">Job Board</th><th class="s-misc">BYOC</th><th class="s-misc">Organic</th><th class="s-misc">Info</th>
     <th class="s-act">Laufend</th>
     <th style="background:var(--surface2);color:var(--c-fu);font-size:10px;font-family:'DM Mono',monospace;">Datum / Status</th>
+    <th style="background:var(--surface2);color:#16a34a;font-size:10px;font-family:'DM Mono',monospace;">Stand / Schnittstelle</th>
     <th style="background:var(--surface2);color:var(--accent2);font-size:10px;font-family:'DM Mono',monospace;">Info</th>
   </tr>
 </thead>
@@ -346,6 +348,7 @@ tbody tr.fu-soon td.fx{background:#fdf6e3!important;}
     <div class="ptab"    data-tab="followup" onclick="switchTab('followup')" style="color:var(--c-fu)">🔔 Nachfassen</div>
     <div class="ptab"    data-tab="kontakte" onclick="switchTab('kontakte')" style="color:var(--accent2)">👤 Kontakte</div>
     <div class="ptab"    data-tab="ats"      onclick="switchTab('ats')">ATS</div>
+    <div class="ptab"    data-tab="tech"     onclick="switchTab('tech')" style="color:#16a34a">🔧 Technik</div>
     <div class="ptab"    data-tab="aktionen" onclick="switchTab('aktionen')" style="color:var(--c-act)">🎯 Aktionen</div>
   </div>
   <div class="panel-body">
@@ -353,6 +356,7 @@ tbody tr.fu-soon td.fx{background:#fdf6e3!important;}
     <div class="tab-content"    id="tab-followup"></div>
     <div class="tab-content"    id="tab-kontakte"></div>
     <div class="tab-content"    id="tab-ats"></div>
+    <div class="tab-content"    id="tab-tech"></div>
     <div class="tab-content"    id="tab-aktionen"></div>
   </div>
   <div class="panel-foot">
@@ -456,6 +460,16 @@ function aktionenCell(aktionen){
   return `<td class="act-cell">${rows}</td>`;
 }
 
+
+// ── tech cell in table ──
+function techCell(r){
+  const parts = [];
+  if(r.tech_stand)          parts.push(`<div style="color:#16a34a;font-weight:600;">${esc(r.tech_stand)}</div>`);
+  if(r.tech_schnittstelle)  parts.push(`<div style="color:var(--muted);margin-top:2px;">${esc(r.tech_schnittstelle)}</div>`);
+  if(r.tech_besonderheiten) parts.push(`<div style="color:var(--muted);font-style:italic;margin-top:2px;">${esc(r.tech_besonderheiten)}</div>`);
+  return parts.join('') || '';
+}
+
 // ══ BUILD ROWS ══
 function buildRows(data){
   const tb=document.getElementById('TB');
@@ -495,9 +509,11 @@ function buildRows(data){
       ${gcells}${mcells}
       ${aktionenCell(r.aktionen)}
       <td style="text-align:center;vertical-align:middle;">${fuBadge(r)}</td>
+      <td class="td-tech" style="text-align:left;max-width:200px;white-space:normal;font-size:10px;color:var(--text);cursor:pointer;" title="Doppelklick = Technik bearbeiten">${techCell(r)}</td>
       <td style="text-align:left;max-width:160px;white-space:normal;font-size:10px;color:var(--muted);">${notiz}</td>`;
 
     tr.querySelector('.td-contact').addEventListener('dblclick',()=>{ openPanel(idx); setTimeout(()=>switchTab('kontakte'),60); });
+    const techTd=tr.querySelector('.td-tech'); if(techTd) techTd.addEventListener('dblclick',(e)=>{ e.stopPropagation(); openPanel(idx); setTimeout(()=>switchTab('tech'),60); });
     tr.addEventListener('dblclick',e=>{ if(!e.target.closest('.td-contact')&&!e.target.closest('a')&&!e.target.closest('.fu-badge')) openPanel(idx); });
     tb.appendChild(tr);
   });
@@ -563,6 +579,7 @@ function switchTab(t){
   if(t==='kontakte') renderKontakteTab();
   if(t==='aktionen') renderAktionenTab();
   if(t==='followup') renderFollowupTab();
+  if(t==='tech') renderTechTab();
 }
 
 // ══ PANEL OPEN ══
@@ -581,7 +598,7 @@ function grpFields(pfx,lbl,cls,vals){
 function openPanel(idx){
   editIdx=idx;
   const isNew=idx<0;
-  const r=isNew?{name:'',url:'',tool:'',contact:'',kontakte:[],stand:'',market:'',zg:'',type:'',notizen:'',aktionen:[],followup_datum:'',followup_notiz:'',sta:['','','',''],yf:['','','',''],rja:['','','',''],jb:['','','',''],itj:['','','',''],misc:['','','','']}:DATA[idx];
+  const r=isNew?{name:'',url:'',tool:'',contact:'',kontakte:[],stand:'',market:'',zg:'',type:'',notizen:'',aktionen:[],followup_datum:'',followup_notiz:'',tech_stand:'',tech_schnittstelle:'',tech_besonderheiten:'',sta:['','','',''],yf:['','','',''],rja:['','','',''],jb:['','','',''],itj:['','','',''],misc:['','','','']}:DATA[idx];
   tmpKontakte=JSON.parse(JSON.stringify(r.kontakte||[]));
   tmpAktionen=JSON.parse(JSON.stringify(r.aktionen||[]));
   document.getElementById('panelSub').textContent=isNew?'Neuer Eintrag':r.name;
@@ -632,6 +649,7 @@ function saveEntry(){
     market:fv('f_market').trim(),zg:fv('f_zg').trim(),type:fv('f_type').trim(),
     notizen:fv('f_notizen').trim(),aktionen:JSON.parse(JSON.stringify(tmpAktionen)),
     followup_datum:fv('f_fu_datum'),followup_notiz:fv('f_fu_notiz').trim(),
+    tech_stand:fv('f_tech_stand').trim(),tech_schnittstelle:fv('f_tech_schnittstelle').trim(),tech_besonderheiten:fv('f_tech_besonderheiten').trim(),
     sta:[fv('f_sta0'),fv('f_sta1'),fv('f_sta2'),fv('f_sta3')],
     yf:[fv('f_yf0'),fv('f_yf1'),fv('f_yf2'),fv('f_yf3')],
     rja:[fv('f_rja0'),fv('f_rja1'),fv('f_rja2'),fv('f_rja3')],
@@ -643,6 +661,27 @@ function saveEntry(){
   closePanel(); rebuildAll(); saveToFile();
 }
 function deleteEntry(){ if(editIdx<0)return; if(!confirm(`"${DATA[editIdx].name}" löschen?`))return; DATA.splice(editIdx,1); closePanel(); rebuildAll(); saveToFile(); }
+
+
+// ══ TECHNIK TAB ══
+function renderTechTab(){
+  const r = editIdx>=0 ? DATA[editIdx] : {tech_stand:'',tech_schnittstelle:'',tech_besonderheiten:''};
+  const c = document.getElementById('tab-tech'); if(!c) return;
+  c.innerHTML = `
+    <div class="pgroup"><div class="pgroup-title" style="color:#16a34a">🔧 Technische Umsetzung</div>
+    <p style="font-size:10px;color:var(--muted);">Für das Team, das die Anbindung technisch umsetzt.</p></div>
+    <div class="fu-box" style="background:rgba(22,163,74,.06);border-color:rgba(22,163,74,.2);">
+      <label>Aktueller Stand der Anbindung
+        <textarea id="f_tech_stand" placeholder="z.B. Feed-URL eingerichtet, Test läuft, wartet auf Freigabe…" style="min-height:60px;">${esc(r.tech_stand||'')}</textarea>
+      </label>
+      <label>Besonderheiten der Schnittstelle
+        <textarea id="f_tech_schnittstelle" placeholder="z.B. XML-Feed alle 4h, Bearer-Token nötig, DirectApply nur POST…" style="min-height:70px;">${esc(r.tech_schnittstelle||'')}</textarea>
+      </label>
+      <label>Sonstige technische Notizen
+        <textarea id="f_tech_besonderheiten" placeholder="z.B. Ansprechpartner Technik, offene Punkte, Workarounds…" style="min-height:60px;">${esc(r.tech_besonderheiten||'')}</textarea>
+      </label>
+    </div>`;
+}
 
 // ══ FOLLOW-UP TAB ══
 function renderFollowupTab(){
@@ -826,12 +865,13 @@ async function loadNewestFromFolder(){
     }
     if(newest){
       const parsed = JSON.parse(await newest.text());
-      if(Array.isArray(parsed) && parsed.length > 0){
+      if(Array.isArray(parsed)){
         DATA = parsed;
+        // Ordner-Datei ist die Wahrheit → localStorage überschreiben
         try{ localStorage.setItem(STORE_KEY, JSON.stringify(DATA)); }catch(e){}
         rebuildAll();
         const ts = new Date(newestTime).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-        showSyncStatus('✓ ' + newestName + ' (' + ts + ')', 'ok');
+        showSyncStatus('✓ Aktuellste geladen: ' + newestName + ' (' + ts + ')', 'ok');
       }
     } else {
       showSyncStatus('Keine JSON im Ordner – wird beim Speichern erstellt','muted');
