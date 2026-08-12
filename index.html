@@ -918,20 +918,43 @@ async function saveToFile(){
   if(dirHandle){
     try{
       showSyncStatus('⟳ Speichere in Ordner…','loading');
+
+      // WICHTIG: Schreibrechte explizit prüfen/anfordern
+      let perm = await dirHandle.queryPermission({mode:'readwrite'});
+      if(perm !== 'granted'){
+        perm = await dirHandle.requestPermission({mode:'readwrite'});
+      }
+      if(perm !== 'granted'){
+        showSyncStatus('⚠ KEINE SCHREIBRECHTE für den Ordner! Bitte „Ordner verbinden" erneut klicken und beim Browser-Dialog „Bearbeiten zulassen" wählen.','error');
+        alert('Der Browser hat nur LESE-Rechte für den Ordner.\n\nBitte:\n1. Auf „↻ Sync / Ordner verbinden" klicken\n2. Im Browser-Dialog UNBEDINGT „Änderungen zulassen" / „Bearbeiten zulassen" wählen (NICHT nur „Anzeigen")\n\nDann erneut speichern.');
+        return; // KEIN Download-Fallback bei Rechte-Problem
+      }
+
       const fh = await dirHandle.getFileHandle('ats_data.json',{create:true});
       const w  = await fh.createWritable();
       await w.write(JSON.stringify(DATA, null, 2));
       await w.close();
-      showSyncStatus('✓ Gespeichert ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}),'ok');
+      showSyncStatus('✓ Gespeichert in Ordner: ats_data.json (' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) + ')','ok');
       return;
     }catch(e){
-      showSyncStatus('⚠ Ordner-Speichern fehlgeschlagen – lade stattdessen herunter','warn');
+      // Genaue Fehlermeldung anzeigen statt still herunterzuladen
+      const msg = e && e.message ? e.message : String(e);
+      showSyncStatus('⚠ Ordner-Speichern FEHLER: ' + msg + ' — siehe Hinweis','error');
+      const weiter = confirm('Speichern in den Ordner ist fehlgeschlagen:\n\n' + msg + '\n\nMögliche Ursache: fehlende Schreibrechte oder OneDrive-Sperre.\n\nMöchtest du die Datei STATTDESSEN als Download speichern?\n(OK = Download, Abbrechen = nichts tun und Problem beheben)');
+      if(!weiter){
+        return; // Nutzer will das Ordner-Problem beheben, KEIN Download
+      }
+      // sonst: unten Download-Fallback
     }
   }
 
   // Hinweis: Ordner verbinden für direktes Speichern in OneDrive
   if(window.showDirectoryPicker && !dirHandle){
-    showSyncStatus('💡 Tipp: „📂 Ordner verbinden" → speichert direkt in OneDrive','warn');
+    const doDownload = confirm('Es ist KEIN Ordner verbunden.\n\nKlicke erst auf „📂 Ordner verbinden" um direkt in OneDrive zu speichern.\n\nMöchtest du stattdessen jetzt als Download speichern?\n(OK = Download, Abbrechen = erst Ordner verbinden)');
+    if(!doDownload){
+      showSyncStatus('📂 Bitte erst „Ordner verbinden" klicken, dann speichern','warn');
+      return;
+    }
   }
   // Fallback: Download (mit Datum + Uhrzeit für eindeutige Sortierung)
   const blob = new Blob([JSON.stringify(DATA, null, 2)], {type:'application/json'});
